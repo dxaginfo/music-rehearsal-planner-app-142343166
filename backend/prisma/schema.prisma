@@ -1,0 +1,190 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  passwordHash    String
+  firstName      String
+  lastName       String
+  avatar         String?
+  role           UserRole        @default(USER)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  groupMembers   GroupMember[]
+  availabilities Availability[]
+  specificAvailabilities SpecificAvailability[]
+  attendance     Attendance[]
+  notifications  Notification[]
+  resetTokens    PasswordReset[]
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+model Group {
+  id          String       @id @default(uuid())
+  name        String
+  description String?
+  imageUrl    String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  members     GroupMember[]
+  rehearsals  Rehearsal[]
+}
+
+model GroupMember {
+  id         String     @id @default(uuid())
+  role       MemberRole @default(MEMBER)
+  instrument String?
+  priority   Int        @default(0)
+  joinedAt   DateTime   @default(now())
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  group      Group      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId    String
+  attendance Attendance[]
+
+  @@unique([userId, groupId])
+}
+
+enum MemberRole {
+  ADMIN
+  MANAGER
+  MEMBER
+}
+
+model Availability {
+  id        String    @id @default(uuid())
+  dayOfWeek Int       // 0 = Sunday, 1 = Monday, etc.
+  startTime String    // HH:MM format in 24-hour time
+  endTime   String    // HH:MM format in 24-hour time
+  recurring Boolean   @default(true)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model SpecificAvailability {
+  id        String    @id @default(uuid())
+  date      DateTime  // Specific date
+  startTime String    // HH:MM format in 24-hour time
+  endTime   String    // HH:MM format in 24-hour time
+  available Boolean   @default(true)
+  reason    String?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Venue {
+  id          String     @id @default(uuid())
+  name        String
+  address     String?
+  city        String?
+  state       String?
+  zipCode     String?
+  country     String?
+  capacity    Int?
+  amenities   String[]
+  hourlyRate  Float?
+  description String?
+  imageUrl    String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  rehearsals  Rehearsal[]
+}
+
+model Rehearsal {
+  id          String      @id @default(uuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  venue       Venue?      @relation(fields: [venueId], references: [id])
+  venueId     String?
+  group       Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId     String
+  status      RehearsalStatus @default(SCHEDULED)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  attendance  Attendance[]
+  equipment   Equipment[]
+}
+
+enum RehearsalStatus {
+  SCHEDULED
+  CANCELLED
+  COMPLETED
+}
+
+model Attendance {
+  id          String     @id @default(uuid())
+  status      AttendanceStatus @default(PENDING)
+  note        String?
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  rehearsal   Rehearsal  @relation(fields: [rehearsalId], references: [id], onDelete: Cascade)
+  rehearsalId String
+  groupMember GroupMember @relation(fields: [groupMemberId], references: [id], onDelete: Cascade)
+  groupMemberId String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([userId, rehearsalId])
+}
+
+enum AttendanceStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+  ATTENDED
+  ABSENT
+}
+
+model Equipment {
+  id          String     @id @default(uuid())
+  name        String
+  type        String
+  description String?
+  ownerId     String?
+  ownerName   String?
+  rehearsals  Rehearsal[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  type      String
+  title     String
+  message   String
+  read      Boolean   @default(false)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model PasswordReset {
+  id        String    @id @default(uuid())
+  token     String    @unique
+  expiresAt DateTime
+  used      Boolean   @default(false)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime  @default(now())
+}
